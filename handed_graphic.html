@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>I give up</title>
+	<script src="http://d3js.org/d3.v3.min.js"></script>
+	<script src="http://dimplejs.org/dist/dimple.v2.1.6.min.js"></script>
+	<style>
+
+	.axis {
+		stroke-width: 1px;
+	}
+
+	.tick text{
+		font-family: sans-serif;
+		font-size: 10px;
+	}
+
+	.mid{
+		stroke-dasharray: 3,3;
+	}
+
+	.y_lab{
+		font-family: sans-serif;
+		font-size: 10px;
+	}
+
+	.tick line{
+		stroke-width: 1px;
+		stroke: lightgray;
+	}
+
+	.whisk {
+		stroke-width: 2px;
+	}
+
+    .domain {
+  		fill: none;
+		stroke: black;
+ 		stroke-width: 1px;
+    }
+
+	</style>
+	<script type="text/javascript">
+		'use strict'
+		function draw(data){
+			'use strict';
+			var margin = 50,
+				width = 600 - margin,
+				height = 600 - margin,
+				barpad = 0.5,
+				barouterpad = 0.5,
+				boxwidth = 70; 
+
+			//Chart #1
+			var svg = d3.select('body')
+			.append('svg')
+			.attr('width', width + margin)
+			.attr('height', height + margin)
+			.append('g')
+			.attr('class', 'graphic1');
+
+
+			var myChart = new dimple.chart(svg, data);
+			var x1 = myChart.addMeasureAxis('x', 'Batting Average');
+			var y1 = myChart.addMeasureAxis('y', 'Homerun Count');
+			var mySeries = myChart.addSeries(['Name', 'Handedness'], dimple.plot.scatter);
+			var myLegend = myChart.addLegend(65, 50, 50, 50);
+			myChart.draw();
+
+
+
+			//Chart #2
+			function box_data(boxes){
+				var a_max = d3.max(boxes, function(d){
+					return d['Batting Average'];
+				});
+
+				var a_min = d3.min(boxes, function(d){
+					return d['Batting Average'];
+				});
+
+				var a_q1 = d3.quantile(boxes.map(function(d) { return d['Batting Average'];}).sort(d3.ascending),.25);
+
+				var a_q2 = d3.quantile(boxes.map(function(d) { return d['Batting Average'];}).sort(d3.ascending),.5);;
+
+				var a_q3 = d3.quantile(boxes.map(function(d) { return d['Batting Average'];}).sort(d3.ascending),.75);;
+
+				return{
+						'minmax' : [a_max, a_min],
+						'quarts' : [a_q1, a_q2, a_q3]
+				};
+					
+					
+				
+			}
+
+			var grouped = d3.nest()
+							.key(function(d) {
+								return d['Handedness'];
+							})
+							.rollup(box_data)
+							.entries(data);
+
+			var svg2 = d3.select('body')
+			.append('svg')
+			.attr('width', width + margin)
+			.attr('height', height + margin)
+			.append('g')
+			.attr('class', 'graphic');
+
+			var x_scale = d3.scale.ordinal()
+        	.domain(['Lefty', 'Righty', 'Switch-hitter'])
+        	.rangeRoundBands([margin, width], barpad, barouterpad);
+
+			var y_scale = d3.scale.linear()
+			.range([height, margin])
+			.domain([0, 0.35]);
+
+			var x_axis = d3.svg.axis()
+			.scale(x_scale)
+			.orient('bottom');
+
+			var y_axis = d3.svg.axis()
+			.scale(y_scale)
+			.orient('left')
+		    .innerTickSize(-width+margin)
+		    .tickPadding(10)
+			.ticks(15);
+
+			svg2.append('g')
+			.attr('class', 'x axis')
+			.call(x_axis)
+			.attr('transform', "translate(0," + height +")");
+
+			svg2.append('g')
+			.attr('class', 'y axis')
+			.call(y_axis)
+			.attr('transform', "translate(" + margin + ",0)");
+
+			svg2.append('text')
+			.attr('class', 'y_lab')
+			.attr("text-anchor", "middle")
+            .attr("transform", "translate(13,"+(height/2)+")rotate(-90)")
+            .text("Batting Average");
+
+			for (var j in grouped){
+				svg2.append('g')
+					.attr('class', 'whisk mid')
+					.selectAll('mid')
+					.data(grouped[j].values.minmax)
+					.enter()
+					.append('line')
+					.style('stroke', function(d){
+						if(grouped[j].key == 'Lefty'){
+							return '#6b94b0';}
+						if(grouped[j].key == 'Righty'){
+							return '#d26b5f';}
+						if(grouped[j].key == 'Switch-hitter'){
+							return '#d39651';}
+						})
+					.attr('x1', x_scale(grouped[j].key) + boxwidth/2)
+					.attr('y1', function(){ return y_scale(grouped[j].values.minmax[1]);})
+					.attr('x2', x_scale(grouped[j].key) + boxwidth/2)
+					.attr('y2', function(){ return y_scale(grouped[j].values.minmax[0]);});
+
+				svg2.append('g')
+					.attr('class', 'whisk')
+					.selectAll('whisk')
+					.data(grouped[j].values.minmax)
+					.enter()
+					.append('line')
+					.style('stroke', function(d){
+						if(grouped[j].key == 'Lefty'){
+							return '#6b94b0';}
+						if(grouped[j].key == 'Righty'){
+							return '#d26b5f';}
+						if(grouped[j].key == 'Switch-hitter'){
+							return '#d39651';}
+						})
+					.attr('x1', x_scale(grouped[j].key))
+					.attr('y1', function(d){ return y_scale(d);})
+					.attr('x2', x_scale(grouped[j].key)+boxwidth)
+					.attr('y2', function(d){ return y_scale(d);});
+
+				svg2.append('g')
+					.attr('class', 'box')
+					.selectAll('box')
+					.data(grouped[j].values.quarts)
+					.enter()
+					.append('rect')
+					.style('fill', function(d){
+						if(grouped[j].key == 'Lefty'){
+							return '#80B1D3';}
+						if(grouped[j].key == 'Righty'){
+							return '#FB8072';}
+						if(grouped[j].key == 'Switch-hitter'){
+							return '#FDB462';}
+						})
+					.style('stroke', function(d){
+						if(grouped[j].key == 'Lefty'){
+							return '#6b94b0';}
+						if(grouped[j].key == 'Righty'){
+							return '#d26b5f';}
+						if(grouped[j].key == 'Switch-hitter'){
+							return '#d39651';}
+						})
+					.attr('x', x_scale(grouped[j].key))
+					.attr('y', function(d){ return y_scale(grouped[j].values.quarts[2]);})
+					.attr('height', function(d){ return y_scale(grouped[j].values.quarts[0])-y_scale(grouped[j].values.quarts[2]);})
+					.attr('width', boxwidth);
+
+				svg2.append('g')
+					.attr('class', 'whisk')
+					.selectAll('mid')
+					.data(grouped[j].values.quarts)
+					.enter()
+					.append('line')
+					.style('stroke', function(d){
+						if(grouped[j].key == 'Lefty'){
+							return '#6b94b0';}
+						if(grouped[j].key == 'Righty'){
+							return '#d26b5f';}
+						if(grouped[j].key == 'Switch-hitter'){
+							return '#d39651';}
+						})
+					.attr('x1', x_scale(grouped[j].key))
+					.attr('y1', function(d){ return y_scale(grouped[j].values.quarts[1]);})
+					.attr('x2', x_scale(grouped[j].key)+boxwidth)
+					.attr('y2', function(d){ return y_scale(grouped[j].values.quarts[1]);});
+			}
+		};
+	</script>
+</head>
+<body>
+	<script type="text/javascript">
+		d3.csv('baseball_data_fixed.csv', function(d){
+			d['Homerun Count'] = +d['Homerun Count'];
+			d['Height'] = +d['Height'];
+			d['Weight'] = +d['Weight'];
+			d['BMI'] = +d['BMI'];
+			d['Batting Average'] = +d['Batting Average'];
+			return d;
+		}, draw);
+	</script>
+</body>
+</html>
